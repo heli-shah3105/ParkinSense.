@@ -1,10 +1,32 @@
+# =============================================================================
+# ParkinSense 2.0 — .gitignore
+# Prevents large audio datasets and binary weights from breaking GitHub limits
+# =============================================================================
+
+# Huge Kaggle dataset archive (8.6 GB) - GitHub hard limit is 100MB
+DEMOOOO/nose reduced dysarthria from kaggle.zip
+*.zip
+!FINALL_PARKINSENSE/**/*.zip
+
+# Preprocessed audio manifests & wav slices
 DEMOOOO/output/
 *.wav
 *.mp3
+*.flac
+*.ogg
+
+# Heavy PyTorch/TensorFlow model weights & cache
 *.pt
 *.pth
 *.bin
 *.safetensors
+*.h5
+
+# Python cache & environments
 __pycache__/
+*/__pycache__/
+*/*/__pycache__/
 venv/
 .env
+.pytest_cache/
+.git_backup/

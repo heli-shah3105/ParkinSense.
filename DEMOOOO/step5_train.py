@@ -89,7 +89,7 @@ from config import (
     GENERAL_ADAPTER_GRADIENT_ACCUMULATION, GENERAL_ADAPTER_MAX_GRAD_NORM,
     EVAL_BATCH_SIZE, LOG_EVERY_N_STEPS,
     EARLY_STOPPING_PATIENCE, INIT_SPEAKER_FROM_GENERAL, SPEAKER_SEVERITY,
-    RANDOM_SEED,
+    RANDOM_SEED, resolve_audio_path,
 )
 from step4_model_setup import (
     create_speaker_adapter_model,
@@ -286,6 +286,7 @@ def prepare_frame(df: pd.DataFrame, processor, train_mode: bool, max_n: Optional
       - (train_mode) drop over-long clips and clips with impossibly long transcripts
       - (optional) subsample for smoke tests
     """
+    df["audio_path"] = df["audio_path"].apply(resolve_audio_path)
     df = df[df["audio_path"].apply(os.path.exists)].copy()
     allowed = allowed_characters(processor)
     df["transcript"] = df["transcript"].apply(lambda t: sanitize_transcript(t, allowed))

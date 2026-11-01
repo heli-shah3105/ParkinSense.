@@ -74,7 +74,7 @@ from config import (
     MANIFEST_DIR, LOGS_DIR, SPEAKER_SEVERITY,
     SILENCE_THRESHOLD_DB, NORMALIZE_TARGET_DB,
     HIGH_PASS_FILTER_HZ, MAX_NORMALIZATION_GAIN_DB,
-    ENABLE_LEXICON_RESCORING
+    ENABLE_LEXICON_RESCORING, resolve_audio_path
 )
 from lexicon_decoder import DysarthricLexiconDecoder
 
@@ -110,12 +110,18 @@ class DysarthricSpeechTranscriber:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         logger.info(f"Initializing Dysarthric Speech Transcriber on device: {self.device}")
 
-        # Load Wav2Vec2 processor
-        self.processor = Wav2Vec2Processor.from_pretrained(BASE_MODEL_NAME)
+        # Load Wav2Vec2 processor (local cache first, then online)
+        try:
+            self.processor = Wav2Vec2Processor.from_pretrained(BASE_MODEL_NAME, local_files_only=True)
+        except Exception:
+            self.processor = Wav2Vec2Processor.from_pretrained(BASE_MODEL_NAME)
 
-        # Load base Wav2Vec2 model
+        # Load base Wav2Vec2 model (local cache first, then online)
         logger.info(f"Loading base acoustic model: {BASE_MODEL_NAME}")
-        self.base_model = Wav2Vec2ForCTC.from_pretrained(BASE_MODEL_NAME)
+        try:
+            self.base_model = Wav2Vec2ForCTC.from_pretrained(BASE_MODEL_NAME, local_files_only=True)
+        except Exception:
+            self.base_model = Wav2Vec2ForCTC.from_pretrained(BASE_MODEL_NAME)
         self.base_model.eval()
 
         self.current_adapter_name = "base_model"
@@ -129,7 +135,7 @@ class DysarthricSpeechTranscriber:
         # Initialize pure Python Dysarthric Lexicon & Language Decoder
         try:
             self.lexicon_decoder = DysarthricLexiconDecoder()
-            logger.info("✓ Dysarthric Lexicon & Language Decoder initialized")
+            logger.info("[OK] Dysarthric Lexicon & Language Decoder initialized")
         except Exception as e:
             logger.warning(f"Could not initialize DysarthricLexiconDecoder: {e}")
             self.lexicon_decoder = None
@@ -147,14 +153,14 @@ class DysarthricSpeechTranscriber:
             spk_path = os.path.join(ADAPTER_DIR, f"speaker_{speaker_id}")
             if os.path.exists(spk_path):
                 severity = SPEAKER_SEVERITY.get(speaker_id, "Unknown")
-                logger.info(f"✓ Found personalized adapter for speaker: {speaker_id} [Severity: {severity}]")
+                logger.info(f"[OK] Found personalized adapter for speaker: {speaker_id} [Severity: {severity}]")
                 return spk_path
             else:
                 logger.info(f"Personal adapter not found for '{speaker_id}', checking generalized adapter...")
 
         gen_path = os.path.join(ADAPTER_DIR, "generalized_adapter")
         if os.path.exists(gen_path):
-            logger.info("✓ Found generalized dysarthric adapter")
+            logger.info("[OK] Found generalized dysarthric adapter")
             return gen_path
 
         return None
@@ -167,7 +173,7 @@ class DysarthricSpeechTranscriber:
             self.model.eval()
             self.current_adapter_path = adapter_path
             self.current_adapter_name = os.path.basename(adapter_path.rstrip("/\\"))
-            logger.info(f"✓ Active adapter set to: {self.current_adapter_name}")
+            logger.info(f"[OK] Active adapter set to: {self.current_adapter_name}")
         except Exception as e:
             logger.warning(f"Failed to load adapter from {adapter_path}: {e}")
             logger.info("Falling back to base model.")
@@ -206,7 +212,7 @@ class DysarthricSpeechTranscriber:
         5. Normalizes volume to target -20 dBFS RMS
         """
         if isinstance(audio_input, (str, Path)):
-            audio_path = str(audio_input)
+            audio_path = resolve_audio_path(str(audio_input))
             if not os.path.exists(audio_path):
                 raise FileNotFoundError(f"Audio file not found: {audio_path}")
             try:
@@ -223,18 +229,15 @@ class DysarthricSpeechTranscriber:
                     except Exception:
                         raise RuntimeError(f"Could not decode audio from '{audio_path}': {sf_err}")
             if orig_sr != SAMPLE_RATE:
-                import librosa
-                audio = librosa.resample(audio, orig_sr=orig_sr, target_sr=SAMPLE_RATE)
+                audio = self._fast_resample(audio, orig_sr, SAMPLE_RATE)
         elif isinstance(audio_input, torch.Tensor):
             audio = audio_input.detach().cpu().numpy()
             if sr and sr != SAMPLE_RATE:
-                import librosa
-                audio = librosa.resample(audio, orig_sr=sr, target_sr=SAMPLE_RATE)
+                audio = self._fast_resample(audio, sr, SAMPLE_RATE)
         elif isinstance(audio_input, np.ndarray):
             audio = audio_input.copy()
             if sr and sr != SAMPLE_RATE:
-                import librosa
-                audio = librosa.resample(audio, orig_sr=sr, target_sr=SAMPLE_RATE)
+                audio = self._fast_resample(audio, sr, SAMPLE_RATE)
         else:
             raise ValueError(f"Unsupported audio input type: {type(audio_input)}")
 
@@ -246,9 +249,11 @@ class DysarthricSpeechTranscriber:
         if audio.dtype != np.float32:
             audio = audio.astype(np.float32)
 
-        # 1. Remove DC offset and sub-bass microphone rumble (< 80 Hz)
+        # 1. Remove DC offset (< 1ms)
         if len(audio) > 0:
             audio = audio - np.mean(audio)
+
+        # 2. Sub-bass rumble high-pass filter (< 80 Hz) (< 2ms)
         try:
             from scipy.signal import butter, filtfilt
             cutoff = HIGH_PASS_FILTER_HZ
@@ -258,25 +263,7 @@ class DysarthricSpeechTranscriber:
         except Exception:
             pass
 
-        # 2. Optional stationary noise reduction for consumer live microphones
-        try:
-            import noisereduce as nr
-            audio = nr.reduce_noise(y=audio, sr=SAMPLE_RATE, stationary=True, prop_decrease=0.6)
-        except Exception:
-            pass
-
-        # 3. Non-destructive silence trimming (40 dB threshold to protect soft hypophonic speech)
-        try:
-            import librosa
-            trim_db = abs(SILENCE_THRESHOLD_DB)
-            trimmed, _ = librosa.effects.trim(audio, top_db=trim_db)
-            # Guard against over-trimming soft/hypophonic Parkinsonian speech:
-            if len(trimmed) >= int(len(audio) * 0.40) and len(trimmed) >= int(SAMPLE_RATE * 0.25):
-                audio = trimmed
-        except Exception:
-            pass
-
-        # 4. Clamped RMS volume normalization (prevents exploding room hiss into clipping)
+        # 3. Clamped RMS volume normalization (-20 dBFS target) (< 1ms)
         rms = np.sqrt(np.mean(audio ** 2))
         if rms > 1e-6:
             target_rms = 10.0 ** (NORMALIZE_TARGET_DB / 20.0)  # ~0.10 (-20 dBFS)
@@ -285,10 +272,29 @@ class DysarthricSpeechTranscriber:
             gain = min(gain, max_gain_linear)
             audio = audio * gain
 
-        # 5. Clip to [-1.0, 1.0] to prevent clipping
+        # 4. Clip to [-1.0, 1.0] to prevent digital clipping
         audio = np.clip(audio, -1.0, 1.0)
 
         return audio
+
+    @staticmethod
+    def _fast_resample(audio_arr: np.ndarray, orig_sr: int, target_sr: int = SAMPLE_RATE) -> np.ndarray:
+        """Fast anti-aliased resampling using scipy resample_poly (~2ms vs seconds in librosa)."""
+        if orig_sr == target_sr:
+            return audio_arr
+        try:
+            import math
+            from scipy.signal import resample_poly
+            gcd = math.gcd(int(orig_sr), int(target_sr))
+            up = target_sr // gcd
+            down = orig_sr // gcd
+            return resample_poly(audio_arr, up, down).astype(np.float32)
+        except Exception:
+            try:
+                import librosa
+                return librosa.resample(audio_arr, orig_sr=orig_sr, target_sr=target_sr).astype(np.float32)
+            except Exception:
+                return audio_arr
 
     def transcribe(
         self,
@@ -539,6 +545,7 @@ class DysarthricSpeechTranscriber:
         if speaker_id:
             df = df[df["speaker_id"] == speaker_id]
 
+        df["audio_path"] = df["audio_path"].apply(resolve_audio_path)
         df = df[df["audio_path"].apply(os.path.exists)]
         logger.info(f"Evaluating {len(df)} samples (split='{split}', speaker='{speaker_id or 'ALL'}')...")
 

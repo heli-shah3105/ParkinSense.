@@ -26,6 +26,13 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import argparse
 import json
 import logging
+import sys
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -43,7 +50,8 @@ from peft import PeftModel
 
 from config import (
     BASE_MODEL_NAME, SAMPLE_RATE, ADAPTER_DIR,
-    MANIFEST_DIR, LOGS_DIR, SPEAKER_SEVERITY
+    MANIFEST_DIR, LOGS_DIR, SPEAKER_SEVERITY,
+    resolve_audio_path
 )
 from step6_inference import DysarthricSpeechTranscriber
 
@@ -89,7 +97,7 @@ class DysarthricASRBenchmark:
         references = []
 
         for _, row in df_subset.iterrows():
-            audio_path = row["audio_path"]
+            audio_path = resolve_audio_path(str(row["audio_path"]))
             if not os.path.exists(audio_path):
                 continue
             ref = str(row["transcript"]).strip().lower()

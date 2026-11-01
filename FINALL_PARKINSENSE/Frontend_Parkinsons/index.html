@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ParkinSense 2.0 // Voice & Motor Assistive Intelligence</title>
+  
+  <!-- Modern Typography: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Unified Design System Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ==========================================================================
+       INTRO ANIMATION OVERLAY (WAVEFORM -> CURSIVE HELLO -> STRAIGHT HORIZON)
+       ========================================================================== -->
+  <div id="intro-container">
+    <!-- Phase 1: Audio Waveform Canvas -->
+    <canvas id="waveformCanvas"></canvas>
+
+    <!-- Glowing Pen Sparkle Follower on Stroke Tip -->
+    <div id="pen-sparkle"></div>
+
+    <!-- Phase 2: Cursive "hello" SVG Layer & Slider Track -->
+    <div id="hello-layer">
+      <div id="slider-track">
+        <svg id="cursiveSvg" viewBox="0 0 1200 300" fill="none" style="width: 100%; max-width: 64rem; height: 16rem; overflow: visible;">
+          <path id="strokePath" class="cursive-path" stroke="#3D261D" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"
+            d="M 0,150 
+               L 360,150 
+               C 380,150 398,75 412,35 
+               C 422,6 434,8 430,40 
+               C 420,105 404,180 400,210 
+               C 399,218 406,218 410,204 
+               C 420,168 432,135 454,130 
+               C 472,126 480,146 478,172 
+               C 476,198 470,208 482,208 
+               C 492,208 502,186 512,166 
+               C 522,146 537,140 540,156 
+               C 544,178 522,208 504,208 
+               C 494,208 504,192 520,186 
+               C 540,180 554,170 567,140 
+               C 582,105 597,55 607,25 
+               C 615,2 626,5 622,35 
+               C 612,105 597,175 594,206 
+               C 592,214 600,214 607,202 
+               C 620,175 637,105 652,55 
+               C 662,22 674,2 680,15 
+               C 684,28 678,65 667,115 
+               C 657,160 652,206 664,206 
+               C 674,206 687,186 700,166 
+               C 712,148 730,140 747,140 
+               C 770,140 780,160 778,182 
+               C 775,206 754,214 737,214 
+               C 717,214 707,196 707,176 
+               C 707,152 724,142 742,142 
+               C 760,142 775,150 795,150 
+               L 1200,150" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- Phase 3: Horizon Line Pulse -->
+    <div id="horizon-line"></div>
+
+    <!-- Skip Intro Button -->
+    <button class="skip-btn" onclick="introController.skip()">
+      Skip Intro &rarr;
+    </button>
+  </div>
+
+  <!-- Ambient Dynamic Background Particles -->
+  <canvas id="bg-particles-canvas"></canvas>
+
+  <!-- ==========================================================================
+       MAIN APPLICATION LAYOUT (SIDEBAR + MAIN CONTENT AREA)
+       ========================================================================== -->
+  <div id="app-container">
+    
+    <!-- SIDEBAR NAVIGATION -->
+    <aside id="sidebar">
+      <div>
+        <!-- Sidebar Brand Header -->
+        <div class="sidebar-header">
+          <div class="brand-logo-link" onclick="switchView('landing')">
+            <div class="brand-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12h3l3-9 4 18 3-9h4"/>
+              </svg>
+            </div>
+            <div class="logo-title-group">
+              <h2>ParkinSense</h2>
+              <span>CARE SUITE 2.0</span>
+            </div>
+          </div>
+          <button id="sidebar-toggle" class="toggle-sidebar-btn" title="Toggle Sidebar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="sidebar-nav">
+          <a class="nav-item active" data-view="landing">
+            <span class="nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="12 8 8 12 12 16 16 12 12 8"/></svg>
+            </span>
+            <span class="sidebar-text">Showcase & Hero</span>
+          </a>
+
+          <a class="nav-item" data-view="home">
+            <span class="nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+            </span>
+            <span class="sidebar-text">Care Dashboard</span>
+          </a>
+
+          <a class="nav-item" data-view="speak">
+            <span class="nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            </span>
+            <span class="sidebar-text">Speak (Voice AI)</span>
+          </a>
+
+          <a class="nav-item" data-view="write">
+            <span class="nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+            </span>
+            <span class="sidebar-text">Write (OCR)</span>
+          </a>
+
+          <a class="nav-item" data-view="motor">
+            <span class="nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/><path d="M12 6a7 7 0 1 0 7 7"/><path d="M12 2a11 11 0 1 0 11 11"/></svg>
+            </span>
+            <span class="sidebar-text">Spiral (Parkinson's)</span>
+          </a>
+
+          <a class="nav-item" data-view="lab">
+            <span class="nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20"/><path d="M6 12v-4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/><circle cx="12" cy="12" r="3"/></svg>
+            </span>
+            <span class="sidebar-text">Acoustic Waveform Lab</span>
+          </a>
+
+          <div class="sidebar-divider"></div>
+
+          <a class="nav-item" data-view="reports">
+            <span class="nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </span>
+            <span class="sidebar-text">Reports</span>
+          </a>
+
+          <a class="nav-item" data-view="history">
+            <span class="nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            <span class="sidebar-text">History</span>
+          </a>
+
+          <a class="nav-item" data-view="progress">
+            <span class="nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </span>
+            <span class="sidebar-text">Progress Trends</span>
+          </a>
+
+          <div class="sidebar-divider"></div>
+
+          <a href="http://localhost:8501" target="_blank" class="nav-item" title="Open Streamlit Clinical Companion in new tab" style="color: var(--accent-tan);">
+            <span class="nav-icon" style="color: var(--accent-tan);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </span>
+            <span class="sidebar-text">Research Portal ↗</span>
+          </a>
+        </nav>
+      </div>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <button class="btn btn-audio" style="width: 100%; justify-content: flex-start; padding: 0.5rem 0.75rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          <span class="audio-status-text">AUDIO FX: OFF</span>
+        </button>
+        <div class="sidebar-footer-brand">
+          ParkinSense &bull; Clinical v2.0
+        </div>
+      </div>
+    </aside>
+
+    <!-- ==========================================================================
+         MAIN CONTENT AREA & TOP NAVBAR
+         ========================================================================== -->
+    <div id="main-wrapper">
+      
+      <!-- Top Navbar -->
+      <header class="top-navbar">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <button id="mobile-menu-toggle" class="mobile-menu-toggle" aria-label="Toggle menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          
+          <div class="nav-role-badge">
+            <span class="role-dot"></span>
+            <span id="current-role-text">Showcase & Acoustic Protocol</span>
+          </div>
+        </div>
+
+        <div class="navbar-actions">
+          <button onclick="switchView('home')" class="btn btn-primary">
+            DASHBOARD &rarr;
+          </button>
+          <button onclick="replayFullVideoAnimation()" class="btn btn-outline" title="Replay intro animation">
+            REPLAY INTRO
+          </button>
+          <button id="audio-toggle-btn" class="btn btn-audio">
+            <span class="audio-status-text">AUDIO FX: OFF</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- ==========================================================================
+           VIEW 1: WELCOME & SHOWCASE (LANDING PAGE)
+           ========================================================================== -->
+      <main id="view-landing" class="page-view active">
+        
+        <!-- Hero Section -->
+        <section class="hero-container">
+          <div class="hero-badge">
+            <span>VOICE ENGINE v4.2 &bull; DEEP CNN MOTOR SCREENING</span>
+          </div>
+
+          <h1 class="hero-title">
+            Say Hello To Accessible Care.
+          </h1>
+
+          <p class="hero-description">
+            An ultra-low latency acoustic and motor synthesis platform designed for people with Parkinson's disease, speech variation, and motor control needs.
+          </p>
+
+          <div class="hero-actions">
+            <button onclick="switchView('home')" class="btn btn-primary" style="font-size: 0.9rem; padding: 0.75rem 1.75rem;">
+              LAUNCH CARE DASHBOARD &rarr;
+            </button>
+            <button onclick="switchView('lab')" class="btn btn-outline" style="font-size: 0.9rem; padding: 0.75rem 1.5rem;">
+              EXPLORE ACOUSTIC LAB
+            </button>
+            <button onclick="replayFullVideoAnimation()" class="btn btn-outline">
+              WATCH INTRO AGAIN
+            </button>
+          </div>
+        </section>
+
+        <!-- Quick Launch Cards -->
+        <section class="core-features-section" style="margin-top: 1.5rem;">
+          <div class="core-cards-grid">
+            <div class="feature-action-card card-speak">
+              <div>
+                <div class="card-top-bar">
+                  <div class="card-icon-wrapper">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                  </div>
+                  <span class="card-category-tag tag-speak">Voice Screening</span>
+                </div>
+                <div class="card-content">
+                  <h3>Voice Intelligence</h3>
+                  <p>Acoustic dysphonia analysis with Librosa. Measure vocal tremor, jitter, shimmer, and harmonics-to-noise ratio in real time.</p>
+                </div>
+              </div>
+              <button class="btn-primary-action" onclick="switchView('speak')">
+                Open Speak Tool &rarr;
+              </button>
+            </div>
+
+            <div class="feature-action-card card-write">
+              <div>
+                <div class="card-top-bar">
+                  <div class="card-icon-wrapper">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                  </div>
+                  <span class="card-category-tag tag-write">Handwriting OCR</span>
+                </div>
+                <div class="card-content">
+                  <h3>Handwriting Digitization</h3>
+                  <p>Dual-pass OCR for canvas drawings and uploaded handwritten notes. Detect micrographia and convert notes into searchable text.</p>
+                </div>
+              </div>
+              <button class="btn-primary-action" onclick="switchView('write')">
+                Open Write Tool &rarr;
+              </button>
+            </div>
+
+            <div class="feature-action-card card-motor">
+              <div>
+                <div class="card-top-bar">
+                  <div class="card-icon-wrapper">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/><path d="M12 6a7 7 0 1 0 7 7"/><path d="M12 2a11 11 0 1 0 11 11"/></svg>
+                  </div>
+                  <span class="card-category-tag tag-motor">Deep Learning CNN</span>
+                </div>
+                <div class="card-content">
+                  <h3>Spiral Motor Test</h3>
+                  <p>Archimedean spiral screening powered by PyTorch CNN. Evaluates tremor amplitude, deviation, and motor smoothness score.</p>
+                </div>
+              </div>
+              <button class="btn-primary-action" onclick="switchView('motor')">
+                Start Spiral Test &rarr;
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Interactive Frequency Lab Embed -->
+        <section class="lab-section">
+          <div class="lab-header">
+            <div>
+              <div class="lab-title-group">
+                <span class="lab-title-dot"></span>
+                <h3 class="lab-title">Interactive Acoustic Waveform Lab</h3>
+              </div>
+              <p class="lab-subtitle">Move or drag across the canvas to modulate harmonic speech frequencies in real time.</p>
+            </div>
+
+            <div class="lab-readouts">
+              <div>FREQ: <span id="freq-readout" class="readout-value">142.4 Hz</span></div>
+              <span style="color: var(--border-light);">|</span>
+              <div>HARMONICS: <span id="harmonics-readout" class="readout-value">1 PURE</span></div>
+            </div>
+          </div>
+
+          <div class="canvas-wrapper">
+            <canvas id="interactiveCanvas"></canvas>
+            <div class="canvas-hint">
+              [DRAG OR HOVER TO MODULATE FREQUENCY]
+            </div>
+          </div>
+
+          <div class="lab-controls">
+            <div class="preset-group">
+              <button class="preset-btn active" data-preset="sine">SINE WAVE</button>
+              <button class="preset-btn" data-preset="neural">NEURAL HARMONIC</button>
+              <button class="preset-btn" data-preset="harmonic">PULSE ECHO</button>
+              <button class="preset-btn" data-preset="spikes">ACOUSTIC SPIKES</button>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 0.725rem; color: var(--text-muted);">
+              WEB AUDIO API OSCILLATOR
+            </div>
+          </div>
+        </section>
+
+        <!-- Features Grid -->
+        <section class="features-grid">
+          <div class="feature-card">
+            <div class="feature-num">01 // LATENCY</div>
+            <h4 class="feature-title">4.2ms Direct Neural Response</h4>
+            <p class="feature-desc">Continuous stream computation delivers speech audio synthesis faster than standard human vocal cords.</p>
+            <div class="feature-viz">
+              <div class="viz-bar"></div>
+              <div class="viz-bar"></div>
+              <div class="viz-bar"></div>
+              <div class="viz-bar"></div>
+              <div class="viz-bar"></div>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-num">02 // MODULATION</div>
+            <h4 class="feature-title">Continuous Fluid Stroke</h4>
+            <p class="feature-desc">Collapses any voice waveform dynamically into smooth vector bezier curves for real-time visualization.</p>
+            <div class="feature-viz">
+              <div class="viz-bar"></div>
+              <div class="viz-bar"></div>
+              <div class="viz-bar"></div>
+              <div class="viz-bar"></div>
+              <div class="viz-bar"></div>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-num">03 // ARCHITECTURE</div>
+            <h4 class="feature-title">Monochromatic Vector Core</h4>
+            <p class="feature-desc">No visual clutter or extraneous noise. Only mathematically exact pitch-black sound wave synthesis.</p>
+            <div class="feature-viz">
+              <div class="viz-bar"></div>
+              <div class="viz-bar"></div>
+              <div class="viz-bar"></div>
+              <div class="viz-bar"></div>
+              <div class="viz-bar"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Protocol Specifications -->
+        <section class="protocol-section">
+          <div class="protocol-text">
+            <h3>NC-866 Synthesis Protocol</h3>
+            <p>
+              Designed for next-generation spatial computing and vocal artificial intelligence. 
+              Waveform NC-866 generates high-fidelity parametric audio shapes directly from streaming neural tokens with zero perceived latency.
+            </p>
+          </div>
+
+          <div class="specs-list">
+            <div class="spec-item">
+              <span class="spec-label">SAMPLING RATE</span>
+              <span class="spec-val">192 kHz / 32-BIT FLOAT</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">HARMONIC DISTORTION</span>
+              <span class="spec-val">&lt; 0.0001% THD</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">VECTOR RENDERING</span>
+              <span class="spec-val">BEZIER CURVE SUB-PIXEL</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">AUDIO ENGINE</span>
+              <span class="spec-val">WEB AUDIO API OSCILLATOR</span>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      <!-- ==========================================================================
+           VIEW 2: CARE DASHBOARD OVERVIEW
+           ========================================================================== -->
+      <main id="view-home" class="page-view">
+        
+        <!-- Summary Banner -->
+        <section class="patient-banner-card">
+          <div class="patient-banner-info">
+            <div class="patient-header-badge">ASSISTIVE DASHBOARD OVERVIEW</div>
+            <h3>Welcome to Your Assistive Care Suite</h3>
+            <p>Select any tool below to begin speech transcription, writing digitization, motor spiral assessment, report generation, or analytics.</p>
+          </div>
+          <div>
+            <button class="btn-primary-action" onclick="switchView('motor')">Quick Spiral Test &rarr;</button>
+          </div>
+        </section>
+
+        <!-- 6 Primary Feature Cards -->
+        <section class="core-features-section">
+          <div class="section-title-row">
+            <div>
+              <h3 class="core-section-title">Assistive Tools</h3>
+              <p class="section-subtitle">Acoustic synthesis, motor assessment, and clinical monitoring tools.</p>
+            </div>
+          </div>
+          
+          <div class="core-cards-grid">
+            <!-- Speak -->
+            <div class="feature-action-card card-speak">
+              <div>
+                <div class="card-top-bar">
+                  <div class="card-icon-wrapper">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                  </div>
+                  <span class="card-category-tag tag-speak">Speech Synthesis</span>
+                </div>
+                <div class="card-content">
+                  <h3>Speak</h3>
+                  <p>Convert vocal speech into clear digital text with real-time audio transcription and multi-language translation.</p>
+                </div>
+              </div>
+              <button class="btn-primary-action" onclick="switchView('speak')">
+                Open Speak Tool &rarr;
+              </button>
+            </div>
+
+            <!-- Write -->
+            <div class="feature-action-card card-write">
+              <div>
+                <div class="card-top-bar">
+                  <div class="card-icon-wrapper">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                  </div>
+                  <span class="card-category-tag tag-write">Handwriting OCR</span>
+                </div>
+                <div class="card-content">
+                  <h3>Write</h3>
+                  <p>Convert screen drawings or uploaded handwritten notes into searchable digital text using OCR technology.</p>
+                </div>
+              </div>
+              <button class="btn-primary-action" onclick="switchView('write')">
+                Open Write Tool &rarr;
+              </button>
+            </div>
+
+            <!-- Spiral -->
+            <div class="feature-action-card card-motor">
+              <div>
+                <div class="card-top-bar">
+                  <div class="card-icon-wrapper">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/><path d="M12 6a7 7 0 1 0 7 7"/><path d="M12 2a11 11 0 1 0 11 11"/></svg>
+                  </div>
+                  <span class="card-category-tag tag-motor">Motor Assessment</span>
+                </div>
+                <div class="card-content">
+                  <h3>Spiral Test</h3>
+                  <p>Complete a guided Archimedean spiral test to evaluate motor smoothness, deviation, and tremor consistency.</p>
+                </div>
+              </div>
+              <button class="btn-primary-action" onclick="switchView('motor')">
+                Start Test &rarr;
+              </button>
+            </div>
+
+            <!-- Reports -->
+            <div class="feature-action-card card-reports">
+              <div>
+                <div class="card-top-bar">
+                  <div class="card-icon-wrapper">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  </div>
+                  <span class="card-category-tag tag-reports">Clinical Reports</span>
+                </div>
+                <div class="card-content">
+                  <h3>Report Generation</h3>
+                  <p>Generate and export structured PDF summaries of all speech, writing, and spiral activities for clinical review.</p>
+                </div>
+              </div>
+              <button class="btn-primary-action" onclick="switchView('reports')">
+                Generate PDF &rarr;
+              </button>
+            </div>
+
+            <!-- History -->
+            <div class="feature-action-card card-history">
+              <div>
+                <div class="card-top-bar">
+                  <div class="card-icon-wrapper">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  </div>
+                  <span class="card-category-tag tag-history">Archive Vault</span>
+                </div>
+                <div class="card-content">
+                  <h3>History</h3>
+                  <p>Browse your complete archive of speech transcriptions, recognized handwriting, and spiral test logs.</p>
+                </div>
+              </div>
+              <button class="btn-primary-action" onclick="switchView('history')">
+                View History &rarr;
+              </button>
+            </div>
+
+            <!-- Progress -->
+            <div class="feature-action-card card-progress">
+              <div>
+                <div class="card-top-bar">
+                  <div class="card-icon-wrapper">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                  </div>
+                  <span class="card-category-tag tag-progress">Analytics</span>
+                </div>
+                <div class="card-content">
+                  <h3>Progress Analytics</h3>
+                  <p>Analyze communication clarity, handwriting conversion, and Parkinson's spiral consistency metrics over time.</p>
+                </div>
+              </div>
+              <button class="btn-primary-action" onclick="switchView('progress')">
+                View Analytics &rarr;
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- KPI Metrics Summary -->
+        <section class="dashboard-progress-grid">
+          <div class="progress-summary-card">
+            <div class="summary-card-header">
+              <h4>Speech Activity</h4>
+              <span class="metric-badge-tag tag-speak">24 Sessions</span>
+            </div>
+            <div class="summary-big-num">88%</div>
+            <p class="summary-subtext">Speech clarity metric consistency</p>
+          </div>
+
+          <div class="progress-summary-card">
+            <div class="summary-card-header">
+              <h4>Writing Activity</h4>
+              <span class="metric-badge-tag tag-write">18 Sessions</span>
+            </div>
+            <div class="summary-big-num">82%</div>
+            <p class="summary-subtext">Handwriting OCR accuracy rating</p>
+          </div>
+
+          <div class="progress-summary-card">
+            <div class="summary-card-header">
+              <h4>Spiral Assessment</h4>
+              <span class="metric-badge-tag tag-motor">7 Tests</span>
+            </div>
+            <div class="summary-big-num">81%</div>
+            <p class="summary-subtext">Motor consistency & smoothness index</p>
+          </div>
+        </section>
+
+        <!-- 7-Day Overall Activity Chart -->
+        <section class="overall-activity-card">
+          <div class="chart-card-header">
+            <div>
+              <h4>Overall Activity Trend</h4>
+              <p style="font-size: 0.875rem; color: var(--text-muted);">Completed speech, writing, and spiral motor assessments over the past 7 days.</p>
+            </div>
+          </div>
+
+          <div id="overall-progress-chart" class="svg-chart-container">
+            <!-- Rendered by app.js -->
+          </div>
+        </section>
+
+        <!-- Recent Activity Table -->
+        <section class="recent-activity-section">
+          <div class="section-title-row" style="margin-bottom: 1.25rem;">
+            <div>
+              <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">Recent Activity</h3>
+              <p class="section-subtitle">Latest care entries and motor assessments.</p>
+            </div>
+            <button class="btn-secondary" onclick="switchView('history')">View All History &rarr;</button>
+          </div>
+
+          <div class="activity-table-wrapper">
+            <table class="activity-table">
+              <thead>
+                <tr>
+                  <th>Type & Metrics</th>
+                  <th>Activity Content / Result</th>
+                  <th>Status</th>
+                  <th>Date & Time</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="history-table-body">
+                <!-- Rendered by app.js -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+
+      <!-- ==========================================================================
+           VIEW 3: SPEAK PAGE (VOICE AI & DYSPHONIA BIOMARKERS)
+           ========================================================================== -->
+      <main id="view-speak" class="page-view">
+        <div class="page-header">
+          <h1 class="page-title">Speak</h1>
+          <p class="page-subtitle">Speak naturally into your device to convert vocal speech into digital text with acoustic dysphonia screening.</p>
+        </div>
+
+        <div class="speak-container">
+          <div class="speak-recorder-card">
+            <button id="speak-mic-btn" class="mic-button-lg" title="Tap to start or stop recording">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            </button>
+            <div id="speak-timer" class="speech-timer">00:00</div>
+            
+            <div class="waveform-anim-visualizer">
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+              <div class="wave-bar"></div>
+            </div>
+
+            <p id="speak-status-prompt" style="font-size: 1rem; color: var(--text-secondary); font-weight: 500;">
+              Tap the microphone to start recording speech.
+            </p>
+          </div>
+
+          <!-- Output Transcription Box -->
+          <div id="speak-transcription-output" class="transcription-output-box">
+            <div class="output-header">
+              <h4 style="font-size: 1.15rem; font-weight: 700;">Live Speech Transcription</h4>
+              <span class="status-badge">Ready</span>
+            </div>
+
+            <textarea id="transcription-text" class="transcription-textarea" placeholder="Your converted speech text will appear here..."></textarea>
+
+            <div class="action-buttons-row">
+              <button class="btn-secondary" onclick="speakCurrentText('transcription-text')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                Listen (Voice)
+              </button>
+              <button class="btn-secondary" onclick="copyToClipboard(document.getElementById('transcription-text').value)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copy Text
+              </button>
+              <button class="btn-secondary" onclick="saveSpeechActivity()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Save Entry
+              </button>
+              <button class="btn-secondary" onclick="handleTranslation()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                Translate
+              </button>
+              <button class="btn-secondary btn-danger" onclick="document.getElementById('transcription-text').value=''; showToast('Cleared transcription');">
+                Clear
+              </button>
+            </div>
+
+            <!-- Voice Acoustic Screening Biomarkers Card -->
+            <div id="voice-screening-card" style="margin-top: 1.5rem; padding: 1.25rem; border-radius: var(--radius-md); background: var(--bg-surface-hover); border: 1px solid var(--border-light);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <h5 style="font-size: 0.95rem; font-weight: 700; margin: 0;">Acoustic Vocal Biomarkers (Librosa Dysphonia Analysis)</h5>
+                <span id="voice-screen-label" class="status-badge" style="background: rgba(56, 178, 172, 0.15); color: #38B2AC; border: 1px solid #38B2AC;">Normal Stability</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.75rem;">
+                <div style="background: var(--bg-surface); padding: 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                  <div style="font-size: 0.7rem; color: var(--text-muted);">Pitch F0</div>
+                  <strong id="voice-f0" style="font-size: 1rem; color: var(--text-primary);">165 Hz</strong>
+                </div>
+                <div style="background: var(--bg-surface); padding: 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                  <div style="font-size: 0.7rem; color: var(--text-muted);">Jitter</div>
+                  <strong id="voice-jitter" style="font-size: 1rem; color: #38B2AC;">0.42%</strong>
+                </div>
+                <div style="background: var(--bg-surface); padding: 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                  <div style="font-size: 0.7rem; color: var(--text-muted);">Shimmer</div>
+                  <strong id="voice-shimmer" style="font-size: 1rem; color: #38B2AC;">2.1%</strong>
+                </div>
+                <div style="background: var(--bg-surface); padding: 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+                  <div style="font-size: 0.7rem; color: var(--text-muted);">HNR Ratio</div>
+                  <strong id="voice-hnr" style="font-size: 1rem; color: #805AD5;">19.4 dB</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Translation Panel -->
+            <div id="translation-result-panel" style="display: none; margin-top: 1.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <label style="font-weight: 600; font-size: 0.9rem;">Translate to:</label>
+                  <select id="target-language-select" class="select-input" onchange="handleTranslation()" style="padding: 0.4rem 0.8rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+                    <option value="Hindi">Hindi (हिंदी)</option>
+                    <option value="Marathi">Marathi (मराठी)</option>
+                    <option value="Spanish">Spanish (Español)</option>
+                    <option value="French">French (Français)</option>
+                    <option value="German">German (Deutsch)</option>
+                  </select>
+                </div>
+                <button class="btn-secondary" style="padding: 0.35rem 0.75rem;" onclick="speakCurrentText('translated-text-box', document.getElementById('target-language-select').value)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                  Speak Translation
+                </button>
+              </div>
+
+              <div id="translated-text-box" style="background: var(--bg-surface); padding: 1rem; border-radius: var(--radius-md); font-size: 1.05rem; color: var(--text-primary); font-weight: 600; border: 1px solid var(--border-light);">
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- ==========================================================================
+           VIEW 4: WRITE PAGE (HANDWRITING OCR CANVAS & NOTE UPLOAD)
+           ========================================================================== -->
+      <main id="view-write" class="page-view">
+        <div class="page-header">
+          <h1 class="page-title">Write</h1>
+          <p class="page-subtitle">Write directly on screen or upload handwritten notes to convert into digital text with OCR.</p>
+        </div>
+
+        <div class="write-page-layout">
+          <!-- Option A: Digital Screen Canvas -->
+          <div class="write-option-card">
+            <div class="canvas-toolbar">
+              <div>
+                <h3 style="font-size: 1.15rem; font-weight: 700;">Option A: Write on Screen</h3>
+                <p style="font-size: 0.8rem; color: var(--text-muted);">Use touch or mouse to write text.</p>
+              </div>
+              <div style="display: flex; gap: 0.5rem;">
+                <button class="btn-secondary" style="padding: 0.35rem 0.75rem;" onclick="clearWriteCanvas()">Clear</button>
+                <button class="btn-primary-action" style="min-height: 38px; width: auto; font-size: 0.875rem;" onclick="submitWriteHandwriting()">Submit Drawing</button>
+              </div>
+            </div>
+
+            <canvas id="write-drawing-canvas" class="drawing-canvas"></canvas>
+          </div>
+
+          <!-- Option B: Upload Handwriting Image -->
+          <div class="write-option-card">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.25rem;">Option B: Upload Note Image</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Process scanned or photo notes with OCR.</p>
+            
+            <input type="file" id="write-upload-file" accept="image/*" style="display: none;" onchange="handleWriteFileUpload(event)">
+
+            <div class="upload-drop-zone" onclick="document.getElementById('write-upload-file').click()">
+              <div class="upload-icon-circle">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </div>
+              <h4 style="font-size: 1rem; font-weight: 600; margin-top: 0.75rem;">Upload or Select Image</h4>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                Click to browse photo or drag note file here
+              </p>
+            </div>
+
+            <!-- Preset Samples -->
+            <div style="margin-top: 1.25rem;">
+              <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Sample Presets:</label>
+              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                <button class="btn-secondary" onclick="loadSampleHandwriting('med')">Medicine Note Sample</button>
+                <button class="btn-secondary" onclick="loadSampleHandwriting('task')">Daily Tasks Sample</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- OCR Result Card -->
+        <div id="write-ocr-result-card" class="transcription-output-box" style="display: none; margin-top: 2rem;">
+          <h4 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem;">Recognized Digital Text</h4>
+          <textarea id="write-recognized-text" class="transcription-textarea"></textarea>
+          
+          <div class="action-buttons-row">
+            <button class="btn-secondary" onclick="speakCurrentText('write-recognized-text')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              Listen (Voice)
+            </button>
+            <button class="btn-secondary" onclick="copyToClipboard(document.getElementById('write-recognized-text').value)">Copy Text</button>
+            <button class="btn-secondary" onclick="saveWriteActivity()">Save Entry</button>
+            <button class="btn-secondary" onclick="clearWriteCanvas(); document.getElementById('write-ocr-result-card').style.display='none';">Try Again</button>
+          </div>
+        </div>
+      </main>
+
+      <!-- ==========================================================================
+           VIEW 5: SPIRAL PAGE (PARKINSON'S MOTOR DETECTION & PYTORCH CNN)
+           ========================================================================== -->
+      <main id="view-motor" class="page-view">
+        <div class="page-header">
+          <h1 class="page-title">Spiral (Parkinson's Detection)</h1>
+          <p class="page-subtitle">Complete a guided Archimedean spiral test to evaluate motor smoothness, deviation, and tremor consistency with PyTorch Deep CNN.</p>
+        </div>
+
+        <div class="motor-assessment-layout">
+          <!-- Spiral Canvas Card -->
+          <div class="spiral-canvas-card">
+            <div style="margin-bottom: 1rem;">
+              <h3 style="font-size: 1.25rem; font-weight: 700;">Spiral Drawing Canvas</h3>
+              <p style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem;">
+                Trace from the center dot outward along the faint dashed line.
+              </p>
+            </div>
+
+            <canvas id="motor-spiral-canvas" class="spiral-canvas"></canvas>
+
+            <input type="file" id="motor-upload-file" accept="image/*" style="display: none;" onchange="handleMotorFileUpload(event)">
+
+            <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 1.25rem;">
+              <button class="btn-secondary" onclick="resetMotorSpiralCanvas()">Reset Canvas</button>
+              <button class="btn-secondary" onclick="document.getElementById('motor-upload-file').click()">Upload Drawing</button>
+              <button class="btn-secondary" onclick="loadSampleSpiral('test_image_healthy.png')" title="Load healthy benchmark sample">Sample (Healthy)</button>
+              <button class="btn-secondary" onclick="loadSampleSpiral('test_image_parkinson.png')" title="Load Parkinson benchmark sample">Sample (Parkinson)</button>
+              <button class="btn-primary-action" style="width: auto;" onclick="submitMotorAssessment()">
+                Submit Assessment &rarr;
+              </button>
+            </div>
+          </div>
+
+          <!-- Assessment Results Card -->
+          <div id="motor-results-card" class="assessment-metrics-card" style="display: none;">
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-light); padding-bottom: 1rem;">
+              <div>
+                <h4 style="font-size: 1.15rem; font-weight: 700;">Spiral Motor Analysis</h4>
+                <p style="font-size: 0.8rem; color: var(--text-muted);">Deep CNN + Trajectory Biomechanics.</p>
+              </div>
+              <span class="status-badge" id="motor-status-badge">Saved</span>
+            </div>
+
+            <!-- Deep Learning CNN Prediction Banner -->
+            <div id="cnn-prediction-banner" style="margin: 1.25rem 0 1rem 0; padding: 1.25rem; border-radius: var(--radius-md); background: rgba(56, 178, 172, 0.12); border: 1.5px solid #38B2AC; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">Deep Learning CNN Screening</div>
+                <div id="cnn-model-label" style="font-size: 1.4rem; font-weight: 800; color: #2C7A7B; margin-top: 0.2rem;">Healthy</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Confidence Score</div>
+                <div id="cnn-model-confidence" style="font-size: 1.4rem; font-weight: 800; font-family: var(--font-mono); color: #2C7A7B;">93.7%</div>
+              </div>
+            </div>
+
+            <div class="metrics-list-grid">
+              <div class="metric-tile">
+                <h5>Tremor Level</h5>
+                <div id="metric-tremor" class="value" style="color: #38B2AC;">Mild</div>
+              </div>
+              <div class="metric-tile">
+                <h5>Smoothness</h5>
+                <div id="metric-smoothness" class="value" style="color: #805AD5;">76%</div>
+              </div>
+              <div class="metric-tile">
+                <h5>Deviation</h5>
+                <div id="metric-deviation" class="value" style="color: #38B2AC;">Low</div>
+              </div>
+              <div class="metric-tile">
+                <h5>Consistency</h5>
+                <div id="metric-consistency" class="value" style="color: #6E56CF;">83%</div>
+              </div>
+            </div>
+
+            <div style="background: var(--bg-surface-hover); padding: 1rem; border-radius: var(--radius-md); font-size: 0.85rem; color: var(--text-secondary); border: 1px solid var(--border-light); margin-top: 1rem;">
+              <strong>Screening decision support:</strong> Results logged to session tracker. Clinical consult recommended if symptomatic.
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- ==========================================================================
+           VIEW 6: ACOUSTIC WAVEFORM LAB (DEDICATED FULL VIEW)
+           ========================================================================== -->
+      <main id="view-lab" class="page-view">
+        <div class="page-header">
+          <h1 class="page-title">Acoustic Waveform Lab</h1>
+          <p class="page-subtitle">Interactive harmonic speech frequency modulator and sound synthesizer.</p>
+        </div>
+
+        <section class="lab-section" style="margin-top: 0;">
+          <div class="lab-header">
+            <div>
+              <div class="lab-title-group">
+                <span class="lab-title-dot"></span>
+                <h3 class="lab-title">Harmonic Frequency Synthesizer</h3>
+              </div>
+              <p class="lab-subtitle">Drag or hover your cursor to sculpt audio frequencies in real time.</p>
+            </div>
+
+            <div class="lab-readouts">
+              <div>FREQ: <span class="readout-value" id="lab-freq-val">142.4 Hz</span></div>
+              <span style="color: var(--border-light);">|</span>
+              <div>HARMONICS: <span class="readout-value">4 ACTIVE</span></div>
+            </div>
+          </div>
+
+          <div class="canvas-wrapper" style="height: 320px;">
+            <canvas id="interactiveCanvas2" style="width: 100%; height: 100%;"></canvas>
+            <div class="canvas-hint">[HOVER OR DRAG TO MODULATE]</div>
+          </div>
+
+          <div class="lab-controls">
+            <div class="preset-group">
+              <button class="preset-btn active" data-preset="sine">SINE WAVE</button>
+              <button class="preset-btn" data-preset="neural">NEURAL HARMONIC</button>
+              <button class="preset-btn" data-preset="harmonic">PULSE ECHO</button>
+              <button class="preset-btn" data-preset="spikes">ACOUSTIC SPIKES</button>
+            </div>
+            <button class="btn btn-audio">
+              <span class="audio-status-text">AUDIO FX: OFF</span>
+            </button>
+          </div>
+        </section>
+      </main>
+
+      <!-- ==========================================================================
+           VIEW 7: REPORT GENERATION
+           ========================================================================== -->
+      <main id="view-reports" class="page-view">
+        <div class="page-header">
+          <h1 class="page-title">Report Generation</h1>
+          <p class="page-subtitle">Export clinical summary reports of your speech, writing, and spiral assessments.</p>
+        </div>
+
+        <div class="patient-banner-card">
+          <div>
+            <div class="patient-header-badge">MONTHLY SUMMARY REPORT</div>
+            <h3 style="font-size: 1.35rem; font-weight: 700; margin-top: 0.5rem; color: var(--text-primary);">Clinical Summary Document</h3>
+            <p style="color: var(--text-secondary); margin-top: 0.25rem;">Includes speech sessions, writing OCR logs, and Parkinson's spiral motor assessments.</p>
+          </div>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button class="btn-primary-action" style="width: auto;" onclick="generateReportPDF()">
+              Download PDF Report
+            </button>
+            <button class="btn-secondary" onclick="showToast('Report link copied to clipboard')">Share Report</button>
+          </div>
+        </div>
+      </main>
+
+      <!-- ==========================================================================
+           VIEW 8: ACTIVITY HISTORY
+           ========================================================================== -->
+      <main id="view-history" class="page-view">
+        <div class="page-header">
+          <h1 class="page-title">Activity History</h1>
+          <p class="page-subtitle">Review your previous speech transcriptions, writing OCR logs, and spiral assessments.</p>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+          <input id="history-search-input" type="text" class="transcription-textarea" style="max-width: 380px; min-height: 42px; padding: 0.5rem 1rem; font-size: 0.9rem;" placeholder="Search history entries...">
+          
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="history-filter-btn btn-secondary active" data-filter="all">All</button>
+            <button class="history-filter-btn btn-secondary" data-filter="speech">Speech</button>
+            <button class="history-filter-btn btn-secondary" data-filter="writing">Writing</button>
+            <button class="history-filter-btn btn-secondary" data-filter="motor">Spiral Motor</button>
+          </div>
+        </div>
+
+        <div class="activity-table-wrapper">
+          <table class="activity-table">
+            <thead>
+              <tr>
+                <th>Type & Metrics</th>
+                <th>Activity Summary</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="history-table-body2">
+              <!-- Rendered by app.js -->
+            </tbody>
+          </table>
+        </div>
+      </main>
+
+      <!-- ==========================================================================
+           VIEW 9: PROGRESS & LONGITUDINAL ANALYTICS
+           ========================================================================== -->
+      <main id="view-progress" class="page-view">
+        <div class="page-header">
+          <h1 class="page-title">Progress & Longitudinal Analytics</h1>
+          <p class="page-subtitle">Track speech clarity, writing accuracy, and Parkinson's spiral consistency metrics over time.</p>
+        </div>
+
+        <!-- Progress KPI Summary Cards -->
+        <div class="dashboard-progress-grid" style="margin-bottom: 1.5rem;">
+          <div class="progress-summary-card">
+            <div class="summary-card-header">
+              <h4>Motor Smoothness</h4>
+              <span class="metric-badge-tag tag-motor">+2.4% vs baseline</span>
+            </div>
+            <div id="kpi-motor-score" class="summary-big-num">81%</div>
+            <p class="summary-subtext">Archimedean spiral trajectory consistency</p>
+          </div>
+
+          <div class="progress-summary-card">
+            <div class="summary-card-header">
+              <h4>Speech Stability</h4>
+              <span class="metric-badge-tag tag-speak">+3.1% clarity</span>
+            </div>
+            <div id="kpi-speech-score" class="summary-big-num">85%</div>
+            <p class="summary-subtext">Phonation HNR & perturbation stability</p>
+          </div>
+
+          <div class="progress-summary-card">
+            <div class="summary-card-header">
+              <h4>Handwriting OCR</h4>
+              <span class="metric-badge-tag tag-write">OCR Core</span>
+            </div>
+            <div class="summary-big-num">82%</div>
+            <p class="summary-subtext">Handwritten note conversion rating</p>
+          </div>
+
+          <div class="progress-summary-card">
+            <div class="summary-card-header">
+              <h4>Documented Tests</h4>
+              <span class="metric-badge-tag tag-progress">Adherent</span>
+            </div>
+            <div id="kpi-total-tests" class="summary-big-num">12</div>
+            <p class="summary-subtext">Longitudinal screening sessions</p>
+          </div>
+        </div>
+
+        <!-- Main Chart Card with Legend -->
+        <div class="overall-activity-card">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div>
+              <h4 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin: 0;">Multi-Modal Longitudinal Progress Curve</h4>
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Synchronized trend comparison across motor and communication sessions.</p>
+            </div>
+            <!-- Legend -->
+            <div style="display: flex; gap: 1rem; align-items: center; font-size: 0.85rem; font-weight: 600;">
+              <span style="display: flex; align-items: center; gap: 0.4rem; color: #3D261D;">
+                <span style="width: 12px; height: 12px; background: #3D261D; border-radius: 50%; display: inline-block;"></span> Motor Smoothness
+              </span>
+              <span style="display: flex; align-items: center; gap: 0.4rem; color: #38B2AC;">
+                <span style="width: 12px; height: 12px; background: #38B2AC; border-radius: 50%; display: inline-block;"></span> Speech Stability
+              </span>
+              <span style="display: flex; align-items: center; gap: 0.4rem; color: #805AD5;">
+                <span style="width: 12px; height: 12px; background: #805AD5; border-radius: 50%; display: inline-block;"></span> Writing Clarity
+              </span>
+            </div>
+          </div>
+
+          <div id="progress-chart-large" class="svg-chart-container" style="height: 280px;">
+            <!-- Rendered by app.js -->
+          </div>
+        </div>
+
+        <!-- Clinical Trajectory Summary Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 1.5rem;">
+          <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+            <h5 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary);">🌀 Motor Tremor Dynamics</h5>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+              Archimedean spiral consistency shows <strong>+2.4% trajectory improvement</strong> over the past 7 days. Radial micro-oscillations remain in the mild stability band.
+            </p>
+          </div>
+          <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+            <h5 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary);">🎙️ Phonation & Dysphonia</h5>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+              Acoustic perturbation metrics indicate stable vocal cord vibration with <strong>Jitter 0.42%</strong> and <strong>HNR 19.4 dB</strong>, supporting conversational clarity.
+            </p>
+          </div>
+          <div style="background: var(--bg-surface); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+            <h5 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary);">📋 Adherence & Decision Support</h5>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+              Daily assessment completion rate is at <strong>86%</strong>. All quantitative logs are preserved for clinical consultation review.
+            </p>
+          </div>
+        </div>
+      </main>
+
+    </div>
+  </div>
+
+  <!-- Global Modal Viewer Container -->
+  <div id="activity-details-modal" class="modal-overlay" onclick="closeModal()">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div id="modal-details-content">
+        <!-- Rendered by app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Unified JavaScript Module -->
+  <script src="app.js"></script>
+</body>
+</html>

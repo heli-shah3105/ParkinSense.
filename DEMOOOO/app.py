@@ -20,45 +20,99 @@ Usage:
 """
 
 import os
+import sys
+
+# Ensure UTF-8 output on Windows
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+# Automatically route to Conda 'dysarthric' environment if run with base Python
+try:
+    import torch
+    import soundfile as sf
+    import numpy as np
+except ImportError:
+    conda_py = r"C:\Users\Heli P Shah\ANACONDA\envs\dysarthric\python.exe"
+    if os.path.exists(conda_py) and sys.executable.lower() != conda_py.lower():
+        import subprocess
+        print(f"[*] Re-launching with Conda 'dysarthric' environment: {conda_py}")
+        res = subprocess.run([conda_py] + sys.argv)
+        sys.exit(res.returncode)
+    else:
+        print("[!] Required ML libraries not found. Run: conda activate dysarthric")
+        sys.exit(1)
 
 import argparse
 import base64
-import cgi
+import email.parser
 import glob
 import io
 import json
 import logging
 import mimetypes
+import threading
 import urllib.parse
 from http import HTTPStatus
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer, BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Dict, List, Optional
-
-import numpy as np
-import soundfile as sf
-import torch
 
 from config import (
     BASE_MODEL_NAME, SAMPLE_RATE, ADAPTER_DIR,
     MANIFEST_DIR, PROCESSED_AUDIO_DIR, SPEAKER_SEVERITY,
-    LOGS_DIR
+    LOGS_DIR, resolve_audio_path
 )
-from step6_inference import DysarthricSpeechTranscriber
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-# Global model instance (lazy loaded)
-_transcriber: Optional[DysarthricSpeechTranscriber] = None
+# Global model instance (lazy loaded in background or on first transcription request)
+_transcriber = None
+_transcriber_loading = False
+_transcriber_lock = threading.Lock()
 
 
-def get_transcriber() -> DysarthricSpeechTranscriber:
-    global _transcriber
+def get_available_adapters() -> dict:
+    """Scan and return all available adapters on disk instantly without loading heavy ML weights."""
+    gen_path = os.path.join(ADAPTER_DIR, "generalized_adapter")
+    has_gen = os.path.exists(gen_path)
+
+    speaker_adapters = {}
+    if os.path.exists(ADAPTER_DIR):
+        for entry in os.listdir(ADAPTER_DIR):
+            if entry.startswith("speaker_"):
+                spk_id = entry[len("speaker_"):]
+                speaker_adapters[spk_id] = {
+                    "path": os.path.join(ADAPTER_DIR, entry),
+                    "severity": SPEAKER_SEVERITY.get(spk_id, "Unknown"),
+                }
+
+    return {
+        "generalized_adapter": {"path": gen_path, "available": has_gen},
+        "speaker_adapters": speaker_adapters,
+        "count_speaker_adapters": len(speaker_adapters),
+    }
+
+
+def get_transcriber():
+    """Thread-safe lazy initialization of DysarthricSpeechTranscriber."""
+    global _transcriber, _transcriber_loading
     if _transcriber is None:
-        logger.info("Initializing DysarthricSpeechTranscriber for Web Platform...")
-        _transcriber = DysarthricSpeechTranscriber()
+        with _transcriber_lock:
+            if _transcriber is None:
+                _transcriber_loading = True
+                try:
+                    logger.info("[*] Loading Dysarthric Speech Transcriber (Wav2Vec2 + LoRA)...")
+                    from step6_inference import DysarthricSpeechTranscriber
+                    _transcriber = DysarthricSpeechTranscriber()
+                    logger.info("[OK] Transcriber model loaded and ready for inference!")
+                finally:
+                    _transcriber_loading = False
     return _transcriber
 
 
@@ -521,6 +575,36 @@ HTML_CONTENT = """<!DOCTYPE html>
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+
+    /* Switch toggle */
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .3s;
+      border-radius: 24px;
+      border: 1px solid var(--border-subtle);
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #0ea5e9;
+      border-color: #38bdf8;
+    }
+    input:checked + .slider:before {
+      transform: translateX(18px);
+    }
   </style>
 </head>
 <body>
@@ -550,11 +634,24 @@ HTML_CONTENT = """<!DOCTYPE html>
 
       <!-- Adapter Selector -->
       <div class="form-group">
-        <label class="form-label">Speaker / Adapter Target</label>
+        <label class="form-label">Speech Recognition Engine / Adapter</label>
         <select id="speakerSelect" onchange="onSpeakerChange()">
-          <option value="">Auto-Route (Generalized Adapter - Unseen Speaker)</option>
+          <option value="__base__">Standard English Speech (Fast Live Translation — Base Model)</option>
+          <option value="">Parkinson's Dysarthric Speech (Generalized LoRA Adapter)</option>
         </select>
         <div id="speakerInfo" style="margin-top: 0.4rem; font-size: 0.8rem; color: var(--text-dim);"></div>
+      </div>
+
+      <!-- Clinical Rescoring Toggle -->
+      <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: rgba(15, 23, 42, 0.4); padding: 0.6rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); margin-top: -0.25rem; margin-bottom: 1.15rem;">
+        <div>
+          <div style="font-size: 0.82rem; font-weight: 600;">Clinical Lexicon Rescoring</div>
+          <div style="font-size: 0.72rem; color: var(--text-dim);">Soft-corrects dysarthric phonetic substitutions</div>
+        </div>
+        <label class="switch" style="position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0;">
+          <input type="checkbox" id="lexiconToggle" onchange="onLexiconToggleChange()">
+          <span class="slider"></span>
+        </label>
       </div>
 
       <!-- Audio Source Selection Tabs -->
@@ -590,6 +687,11 @@ HTML_CONTENT = """<!DOCTYPE html>
           </button>
           <div id="micStatus" style="font-size: 0.85rem; font-weight: 600;">Click to Record</div>
           <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.25rem;">Speak clearly into your microphone</div>
+          
+          <!-- Live Audio Volume Meter -->
+          <div id="micMeterContainer" style="margin-top: 0.85rem; background: rgba(0,0,0,0.4); border-radius: 999px; height: 6px; width: 80%; margin-left: auto; margin-right: auto; overflow: hidden; display: none;">
+            <div id="micMeterBar" style="height: 100%; width: 0%; background: var(--primary); transition: width 0.05s ease, background 0.2s ease;"></div>
+          </div>
         </div>
       </div>
 
@@ -671,7 +773,30 @@ HTML_CONTENT = """<!DOCTYPE html>
     window.addEventListener('DOMContentLoaded', () => {
       fetchAdapters();
       fetchSamples();
+      pollModelStatus();
+      setInterval(pollModelStatus, 2500);
     });
+
+    async function pollModelStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        const statusText = document.getElementById('systemStatus');
+        const dot = document.querySelector('.status-dot');
+        if (data.model_ready) {
+          statusText.textContent = 'Acoustic Model Ready (Wav2Vec2 + LoRA)';
+          if (dot) dot.style.background = '#10b981';
+        } else if (data.model_loading) {
+          statusText.textContent = 'Loading Acoustic Model in background...';
+          if (dot) dot.style.background = '#f59e0b';
+        } else {
+          statusText.textContent = 'Engine Ready (16 kHz Mono)';
+        }
+      } catch (e) {
+        // Server initializing
+      }
+    }
+
 
     function setTab(tab) {
       activeTab = tab;
@@ -690,18 +815,19 @@ HTML_CONTENT = """<!DOCTYPE html>
         const select = document.getElementById('speakerSelect');
 
         select.innerHTML = `
-          <option value="">Auto-Route (Generalized Adapter - Unseen Dysarthric Speaker)</option>
-          <option value="__base__">Base Wav2Vec2 (Standard / Healthy Control Speech)</option>
+          <option value="__base__">Standard English Speech (Fast Live Translation — Base Model)</option>
+          <option value="">Parkinson's Dysarthric Speech (Generalized LoRA Adapter)</option>
         `;
 
         if (data.speaker_adapters) {
           for (const [spk, meta] of Object.entries(data.speaker_adapters)) {
             const opt = document.createElement('option');
             opt.value = spk;
-            opt.textContent = `${spk} [Severity: ${meta.severity}]`;
+            opt.textContent = `Personalized Adapter: ${spk} [Severity: ${meta.severity}]`;
             select.appendChild(opt);
           }
         }
+        onSpeakerChange();
       } catch (err) {
         console.error('Failed to load adapters:', err);
       }
@@ -735,12 +861,25 @@ HTML_CONTENT = """<!DOCTYPE html>
     function onSpeakerChange() {
       const spk = document.getElementById('speakerSelect').value;
       const info = document.getElementById('speakerInfo');
+      const toggle = document.getElementById('lexiconToggle');
+
       if (spk === '__base__') {
-        info.innerHTML = `Base Wav2Vec2-960h active — recommended when recording standard / healthy speech.`;
+        info.innerHTML = `🎙️ <strong>Standard Speech Mode:</strong> Ultra-fast (<0.5s) real-time translation for daily conversational speech.`;
+        if (toggle) toggle.checked = false;
       } else if (spk) {
-        info.innerHTML = `Personalized LoRA adapter selected for <strong>${spk}</strong>.`;
+        info.innerHTML = `👤 <strong>Personalized Adapter (${spk}):</strong> Fine-tuned for this speaker's voice nuances.`;
+        if (toggle) toggle.checked = true;
       } else {
-        info.innerHTML = `Generalized adapter active — optimal for Parkinson's dysarthric speech.`;
+        info.innerHTML = `🧠 <strong>Parkinson's Generalized LoRA:</strong> Adapted for dysarthric / hypophonic speech patterns.`;
+        if (toggle) toggle.checked = true;
+      }
+    }
+
+    function onLexiconToggleChange() {
+      const toggle = document.getElementById('lexiconToggle');
+      const info = document.getElementById('speakerInfo');
+      if (toggle && !toggle.checked) {
+        info.innerHTML += ` <span style="color: var(--text-dim);">(Lexicon rescoring bypassed)</span>`;
       }
     }
 
@@ -769,6 +908,8 @@ HTML_CONTENT = """<!DOCTYPE html>
     let micStream = null;
     let processorNode = null;
     let inputSource = null;
+    let analyserNode = null;
+    let meterAnimation = null;
     let pcmBuffers = [];
     let recordingLength = 0;
     let isRecording = false;
@@ -797,6 +938,10 @@ HTML_CONTENT = """<!DOCTYPE html>
     async function startRecording() {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       audioCtx = new AudioContextClass();
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
@@ -806,6 +951,11 @@ HTML_CONTENT = """<!DOCTYPE html>
         }
       });
       inputSource = audioCtx.createMediaStreamSource(micStream);
+
+      // Connect real-time audio analyser for volume meter
+      analyserNode = audioCtx.createAnalyser();
+      analyserNode.fftSize = 256;
+      inputSource.connect(analyserNode);
 
       processorNode = audioCtx.createScriptProcessor(4096, 1, 1);
       pcmBuffers = [];
@@ -821,14 +971,46 @@ HTML_CONTENT = """<!DOCTYPE html>
       inputSource.connect(processorNode);
       processorNode.connect(audioCtx.destination);
       isRecording = true;
+
+      // Show and animate volume meter
+      const meterContainer = document.getElementById('micMeterContainer');
+      if (meterContainer) meterContainer.style.display = 'block';
+      updateMicVisualizer();
+    }
+
+    function updateMicVisualizer() {
+      if (!isRecording || !analyserNode) return;
+      const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
+      analyserNode.getByteFrequencyData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      const avg = sum / dataArray.length;
+      const pct = Math.min(100, Math.round((avg / 128) * 100));
+
+      const bar = document.getElementById('micMeterBar');
+      if (bar) {
+        bar.style.width = Math.max(4, pct) + '%';
+        bar.style.backgroundColor = pct > 20 ? 'var(--success)' : 'var(--primary)';
+      }
+      meterAnimation = requestAnimationFrame(updateMicVisualizer);
     }
 
     function stopRecording() {
       isRecording = false;
       const status = document.getElementById('micStatus');
 
+      if (meterAnimation) {
+        cancelAnimationFrame(meterAnimation);
+        meterAnimation = null;
+      }
+      const meterContainer = document.getElementById('micMeterContainer');
+      if (meterContainer) meterContainer.style.display = 'none';
+
       if (processorNode) { processorNode.disconnect(); processorNode = null; }
       if (inputSource) { inputSource.disconnect(); inputSource = null; }
+      if (analyserNode) { analyserNode.disconnect(); analyserNode = null; }
       if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
 
       const origRate = audioCtx ? audioCtx.sampleRate : 16000;
@@ -846,9 +1028,10 @@ HTML_CONTENT = """<!DOCTYPE html>
         offset += b.length;
       }
 
-      // Encode at native sample rate. Python librosa will perform band-limited, anti-aliased resampling.
-      currentAudioBlob = encodeWAV(merged, origRate);
-      currentFileName = 'mic_recording.wav';
+      // Fast, anti-aliased downsampling directly to 16,000 Hz in JavaScript
+      const downsampled = downsampleBuffer(merged, origRate, 16000);
+      currentAudioBlob = encodeWAV(downsampled, 16000);
+      currentFileName = 'mic_recording_16k.wav';
 
       const player = document.getElementById('audioPlayer');
       player.src = URL.createObjectURL(currentAudioBlob);
@@ -918,10 +1101,11 @@ HTML_CONTENT = """<!DOCTYPE html>
       const spinner = document.getElementById('loadingSpinner');
       const btnText = document.getElementById('btnText');
       const speakerId = document.getElementById('speakerSelect').value;
+      const useLexicon = document.getElementById('lexiconToggle') ? document.getElementById('lexiconToggle').checked : true;
 
       btn.disabled = true;
       spinner.style.display = 'inline-block';
-      btnText.textContent = 'Decoding Dysarthric Speech...';
+      btnText.textContent = 'Decoding Speech in Real-Time...';
 
       try {
         let res;
@@ -935,7 +1119,11 @@ HTML_CONTENT = """<!DOCTYPE html>
           res = await fetch('/api/transcribe_sample', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ audio_path: samplePath, speaker_id: speakerId })
+            body: JSON.stringify({
+              audio_path: samplePath,
+              speaker_id: speakerId,
+              use_lexicon: useLexicon
+            })
           });
         } else {
           if (!currentAudioBlob) {
@@ -960,6 +1148,7 @@ HTML_CONTENT = """<!DOCTYPE html>
             body: JSON.stringify({
               audio_base64: base64Audio,
               speaker_id: speakerId,
+              use_lexicon: useLexicon,
               filename: currentFileName || 'audio.wav'
             })
           });
@@ -979,7 +1168,7 @@ HTML_CONTENT = """<!DOCTYPE html>
       } finally {
         btn.disabled = false;
         spinner.style.display = 'none';
-        btnText.textContent = 'Transcribe Dysarthric Speech';
+        btnText.textContent = 'Transcribe Audio';
       }
     }
 
@@ -1069,12 +1258,21 @@ class DysarthriaASRServer(BaseHTTPRequestHandler):
             self.wfile.write(HTML_CONTENT.encode("utf-8"))
             return
 
-        # 2. API: List Adapters
+        # 2. API: List Adapters (Instant - does not block on model loading!)
         if path == "/api/adapters":
-            transcriber = get_transcriber()
-            adapters_info = transcriber.list_available_adapters()
+            adapters_info = get_available_adapters()
             self._set_headers()
             self.wfile.write(json.dumps(adapters_info).encode("utf-8"))
+            return
+
+        # 2b. API: Status
+        if path == "/api/status":
+            self._set_headers()
+            self.wfile.write(json.dumps({
+                "server": "online",
+                "model_ready": _transcriber is not None,
+                "model_loading": _transcriber_loading
+            }).encode("utf-8"))
             return
 
         # 3. API: List Dataset Samples
@@ -1099,7 +1297,8 @@ class DysarthriaASRServer(BaseHTTPRequestHandler):
 
         # 4. API: Stream Audio File
         if path == "/api/audio":
-            file_path = params.get("path", [None])[0]
+            raw_path = params.get("path", [None])[0]
+            file_path = resolve_audio_path(raw_path) if raw_path else None
             if file_path and os.path.exists(file_path):
                 self._set_headers(content_type="audio/wav")
                 with open(file_path, "rb") as f:
@@ -1123,17 +1322,19 @@ class DysarthriaASRServer(BaseHTTPRequestHandler):
             # 1. Transcribe Preprocessed Dataset Sample
             if path == "/api/transcribe_sample":
                 data = json.loads(body.decode("utf-8"))
-                audio_path = data.get("audio_path")
+                raw_audio_path = data.get("audio_path")
+                audio_path = resolve_audio_path(raw_audio_path)
                 speaker_id = data.get("speaker_id") or None
+                use_lexicon = bool(data.get("use_lexicon", True))
 
                 if not audio_path or not os.path.exists(audio_path):
                     self._set_headers(status=400)
-                    self.wfile.write(json.dumps({"error": f"Invalid audio path: {audio_path}"}).encode("utf-8"))
+                    self.wfile.write(json.dumps({"error": f"Invalid audio path: {raw_audio_path}"}).encode("utf-8"))
                     return
 
                 transcriber = get_transcriber()
                 transcriber.switch_adapter(speaker_id=speaker_id)
-                result = transcriber.transcribe_with_timestamps(audio_path)
+                result = transcriber.transcribe_with_timestamps(audio_path, use_lexicon=use_lexicon)
                 self._set_headers()
                 self.wfile.write(json.dumps(result).encode("utf-8"))
                 return
@@ -1142,11 +1343,13 @@ class DysarthriaASRServer(BaseHTTPRequestHandler):
             if path == "/api/transcribe_upload":
                 content_type = self.headers.get("Content-Type", "")
                 speaker_id = None
+                use_lexicon = True
                 audio_bytes = None
 
                 if "application/json" in content_type:
                     data = json.loads(body.decode("utf-8"))
                     speaker_id = data.get("speaker_id") or None
+                    use_lexicon = bool(data.get("use_lexicon", True))
                     b64_str = data.get("audio_base64", "")
                     if not b64_str:
                         self._set_headers(status=400)
@@ -1155,19 +1358,18 @@ class DysarthriaASRServer(BaseHTTPRequestHandler):
                     audio_bytes = base64.b64decode(b64_str)
 
                 elif "multipart/form-data" in content_type:
-                    form = cgi.FieldStorage(
-                        fp=io.BytesIO(body),
-                        headers=self.headers,
-                        environ={
-                            "REQUEST_METHOD": "POST",
-                            "CONTENT_TYPE": content_type,
-                            "CONTENT_LENGTH": str(len(body)),
-                        }
+                    msg = email.parser.BytesParser().parsebytes(
+                        b"Content-Type: " + content_type.encode("latin-1") + b"\r\n\r\n" + body
                     )
-                    if "audio" in form:
-                        audio_item = form["audio"]
-                        speaker_id = form.getvalue("speaker_id", None) or None
-                        audio_bytes = audio_item.file.read()
+                    for part in msg.get_payload():
+                        cd = part.get("Content-Disposition", "")
+                        if 'name="audio"' in cd:
+                            audio_bytes = part.get_payload(decode=True)
+                        elif 'name="speaker_id"' in cd:
+                            speaker_id = part.get_payload(decode=True).decode("utf-8", errors="replace").strip() or None
+                        elif 'name="use_lexicon"' in cd:
+                            val = part.get_payload(decode=True).decode("utf-8", errors="replace").strip().lower()
+                            use_lexicon = val not in ("0", "false", "no")
 
                 else:
                     audio_bytes = body
@@ -1185,7 +1387,7 @@ class DysarthriaASRServer(BaseHTTPRequestHandler):
                 transcriber = get_transcriber()
                 transcriber.switch_adapter(speaker_id=speaker_id)
 
-                result = transcriber.transcribe_with_timestamps(temp_path)
+                result = transcriber.transcribe_with_timestamps(temp_path, use_lexicon=use_lexicon)
                 self._set_headers()
                 self.wfile.write(json.dumps(result).encode("utf-8"))
                 return
@@ -1204,11 +1406,56 @@ class DysarthriaASRServer(BaseHTTPRequestHandler):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def run_server(port: int = 8080):
-    server_address = ("", port)
-    httpd = HTTPServer(server_address, DysarthriaASRServer)
-    logger.info("=" * 70)
-    logger.info(f"VocalAid AI Platform running at: http://localhost:{port}")
-    logger.info("=" * 70)
+    import webbrowser
+    import threading
+
+    chosen_port = port
+    httpd = None
+
+    # Try requested port, then alternate ports if 8080 is blocked/occupied
+    for p in [chosen_port, 8081, 8082, 8000, 8050, 5000]:
+        try:
+            # Bind to 127.0.0.1 loopback
+            server_address = ("127.0.0.1", p)
+            httpd = ThreadingHTTPServer(server_address, DysarthriaASRServer)
+            chosen_port = p
+            break
+        except OSError:
+            try:
+                server_address = ("", p)
+                httpd = ThreadingHTTPServer(server_address, DysarthriaASRServer)
+                chosen_port = p
+                break
+            except OSError as e:
+                logger.warning(f"Port {p} not available ({e}), trying next port...")
+
+    if httpd is None:
+        logger.error(f"Could not bind to any port around {port}.")
+        return
+
+    url = f"http://127.0.0.1:{chosen_port}"
+    print("\n" + "=" * 70)
+    print("VOCALAID AI — PARKINSON'S DYSARTHRIC SPEECH RECOGNITION PLATFORM")
+    print("=" * 70)
+    print(f"[+] VocalAid AI Web Platform is LIVE at: {url}")
+    print(f"[+] Access in your browser: {url} or http://localhost:{chosen_port}")
+    print("=" * 70 + "\n")
+
+    # Start acoustic model warm-up in background thread
+    def _warmup_background():
+        try:
+            get_transcriber()
+        except Exception as e:
+            logger.info(f"Model initialization note: {e}")
+
+    threading.Thread(target=_warmup_background, daemon=True).start()
+
+    # Automatically launch browser after 0.5 second
+    try:
+        threading.Timer(0.5, lambda: webbrowser.open(url)).start()
+    except Exception:
+        pass
+
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -1221,3 +1468,4 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8080, help="Port to serve on (default: 8080)")
     args = parser.parse_args()
     run_server(port=args.port)
+

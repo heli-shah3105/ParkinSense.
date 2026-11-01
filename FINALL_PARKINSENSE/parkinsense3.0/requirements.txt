@@ -1,0 +1,10 @@
+streamlit>=1.32
+easyocr
+gTTS
+opencv-python-headless
+numpy
+Pillow
+transformers
+torch
+google-genai
+pyspellchecker

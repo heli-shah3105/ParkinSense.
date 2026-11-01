@@ -43,6 +43,16 @@ DEMOOOO/
     └── logs/                 # Clinical logs, benchmark reports, speaker stats
 ```
 
+## ⚡ One-Click Windows Launchers (Recommended)
+
+| Script | What It Does |
+| :--- | :--- |
+| [`run_app.bat`](run_app.bat) / [`run_app.ps1`](run_app.ps1) | **Launch Web Platform** on `http://127.0.0.1:8080` (auto-activates Conda, opens browser) |
+| [`test_env.bat`](test_env.bat) / [`test_env.ps1`](test_env.ps1) | **Run 5-Stage System Diagnostic** (verifies dependencies, adapters, audio, live inference) |
+| [`transcribe.bat`](transcribe.bat) / [`transcribe.ps1`](transcribe.ps1) | **Transcribe Any Audio File** with word timestamps & confidence score |
+| [`run_benchmark.bat`](run_benchmark.bat) | **Run Clinical Benchmark** on held-out test speakers |
+| [`train_general_smoke_test.bat`](train_general_smoke_test.bat) | **2-Minute Training Smoke Test** verifying training loop convergence |
+
 ---
 
 ## 🚀 Quick Start Guide

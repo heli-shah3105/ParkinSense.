@@ -11,7 +11,7 @@ import os
 # ─────────────────────────────────────────────────────────────────────────────
 # BASE PATHS
 # ─────────────────────────────────────────────────────────────────────────────
-BASE_DIR = r"c:\Users\Heli P Shah\OneDrive\Desktop\DEMOOOO"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Dataset root directories
 FOLDER1_ROOT = os.path.join(BASE_DIR, "dysartia(1)", "noisereduced-uaspeech-control")
@@ -27,6 +27,30 @@ MANIFEST_DIR = os.path.join(OUTPUT_DIR, "manifests")
 ADAPTER_DIR = os.path.join(OUTPUT_DIR, "adapters")
 LOGS_DIR = os.path.join(OUTPUT_DIR, "logs")
 CHECKPOINTS_DIR = os.path.join(OUTPUT_DIR, "checkpoints")
+
+
+def resolve_audio_path(audio_path: str) -> str:
+    """
+    Ensure audio path resolves correctly across different directories and platforms.
+    Maps legacy hardcoded manifest paths to the current local PROCESSED_AUDIO_DIR.
+    """
+    if not audio_path:
+        return audio_path
+    if os.path.exists(audio_path):
+        return os.path.abspath(audio_path)
+    norm = audio_path.replace("\\", "/")
+    if "output/processed_audio/" in norm:
+        sub = norm.split("output/processed_audio/", 1)[1]
+        local = os.path.join(PROCESSED_AUDIO_DIR, sub.replace("/", os.sep))
+        if os.path.exists(local):
+            return local
+    if "output/" in norm:
+        sub = norm.split("output/", 1)[1]
+        local = os.path.join(OUTPUT_DIR, sub.replace("/", os.sep))
+        if os.path.exists(local):
+            return local
+    return audio_path
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # AUDIO PROCESSING

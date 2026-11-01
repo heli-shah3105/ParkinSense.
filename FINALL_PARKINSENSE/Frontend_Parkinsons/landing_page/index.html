@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Intelligence // Hello</title>
+  
+  <!-- Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  
+  <!-- Self-contained Landing Page Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ==========================================================================
+       INTRO ANIMATION OVERLAY
+       ========================================================================== -->
+  <div id="intro-container">
+    
+    <!-- PHASE 1 & 2: Audio Waveform Canvas -->
+    <canvas id="waveformCanvas"></canvas>
+
+    <!-- Sparkling Photon Follower on Stroke Tip -->
+    <div id="pen-sparkle"></div>
+
+    <!-- PHASE 3: Cursive "hello" SVG Layer & Panning Slider Track -->
+    <div id="hello-layer">
+      <div id="slider-track">
+        <svg id="cursiveSvg" class="glow-line" viewBox="0 0 1200 300" fill="none" style="width: 100%; max-width: 64rem; height: 16rem; overflow: visible;">
+          <!-- Continuous line: Left Straight -> Cursive Hello -> Right Straight Extension -->
+          <path id="strokePath" class="cursive-path" stroke="#3D261D" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"
+            d="M 0,150 
+               L 360,150 
+               C 380,150 398,75 412,35 
+               C 422,6 434,8 430,40 
+               C 420,105 404,180 400,210 
+               C 399,218 406,218 410,204 
+               C 420,168 432,135 454,130 
+               C 472,126 480,146 478,172 
+               C 476,198 470,208 482,208 
+               C 492,208 502,186 512,166 
+               C 522,146 537,140 540,156 
+               C 544,178 522,208 504,208 
+               C 494,208 504,192 520,186 
+               C 540,180 554,170 567,140 
+               C 582,105 597,55 607,25 
+               C 615,2 626,5 622,35 
+               C 612,105 597,175 594,206 
+               C 592,214 600,214 607,202 
+               C 620,175 637,105 652,55 
+               C 662,22 674,2 680,15 
+               C 684,28 678,65 667,115 
+               C 657,160 652,206 664,206 
+               C 674,206 687,186 700,166 
+               C 712,148 730,140 747,140 
+               C 770,140 780,160 778,182 
+               C 775,206 754,214 737,214 
+               C 717,214 707,196 707,176 
+               C 707,152 724,142 742,142 
+               C 760,142 775,150 795,150 
+               L 1200,150" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- PHASE 4: Straight Horizon Line Pulse -->
+    <div id="horizon-line" class="glow-line"></div>
+
+    <!-- Skip Intro Button -->
+    <button class="skip-btn" onclick="skipToLandingPage()">
+      Skip Intro &rarr;
+    </button>
+  </div>
+
+  <!-- Ambient Dynamic Background Canvas -->
+  <canvas id="bg-particles-canvas"></canvas>
+
+  <!-- ==========================================================================
+       MAIN LANDING PAGE DASHBOARD CONTENT
+       ========================================================================== -->
+  <div id="landing-page">
+    
+    <!-- Header Navigation -->
+    <header>
+      <div class="nav-container">
+        
+        <!-- Logo -->
+        <div class="logo-group" onclick="replayFullVideoAnimation()" title="Replay Intro Animation">
+          <div class="logo-dot"></div>
+          <span class="logo-title">WAVEFORM</span>
+          <span class="logo-tag">NC-866</span>
+        </div>
+
+        <!-- Links -->
+        <nav class="nav-links">
+          <a href="#lab">LAB</a>
+          <a href="#features">SYNTHESIS</a>
+          <a href="#protocol">PROTOCOL</a>
+          <a href="#specs">SPECS</a>
+        </nav>
+
+        <!-- Actions -->
+        <div class="nav-actions">
+          <a href="../dashboard/index.html" class="btn btn-primary" style="background: #3D261D; color: #FAF6F0; border-color: #3D261D; box-shadow: 0 4px 15px rgba(61, 38, 29, 0.2);">
+            ENTER DASHBOARD &rarr;
+          </a>
+          <button onclick="replayFullVideoAnimation()" class="btn btn-outline">
+            REPLAY INTRO
+          </button>
+          <button id="audio-toggle-btn" class="btn btn-audio">
+            <span id="audio-status-text">AUDIO FX: OFF</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+      
+      <!-- Hero Section -->
+      <section class="hero-container reveal active">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          <span>VOICE ENGINE v4.2 &bull; ASSISTIVE TECHNOLOGY CORE</span>
+        </div>
+
+        <h1 class="hero-title">
+          Say Hello To Accessible Care.
+        </h1>
+
+        <p class="hero-description">
+          An ultra-low latency acoustic and motor synthesis platform designed for people with Parkinson's disease, speech variation, and motor control needs.
+        </p>
+
+        <div class="hero-actions">
+          <a href="../dashboard/index.html" class="btn btn-primary" style="background: #3D261D; color: #FAF6F0; font-size: 0.85rem; padding: 0.75rem 1.75rem; box-shadow: 0 4px 20px rgba(61, 38, 29, 0.25);">
+            LAUNCH ASSISTIVE DASHBOARD &rarr;
+          </a>
+          <button onclick="replayFullVideoAnimation()" class="btn btn-outline">
+            WATCH INTRO AGAIN
+          </button>
+          <a href="#lab" class="btn btn-outline">
+            EXPLORE ACOUSTIC LAB &darr;
+          </a>
+        </div>
+      </section>
+
+      <!-- Interactive Frequency Lab -->
+      <section id="lab" class="lab-section reveal">
+        <div class="lab-header">
+          <div>
+            <div class="lab-title-group">
+              <span class="lab-title-dot"></span>
+              <h3 class="lab-title">Interactive Acoustic Waveform Lab</h3>
+            </div>
+            <p class="lab-subtitle">Move or drag across the canvas to modulate harmonic speech frequencies in real time.</p>
+          </div>
+
+          <div class="lab-readouts">
+            <div>FREQ: <span id="freq-readout" class="readout-value">142.4 Hz</span></div>
+            <span style="color: #404040;">|</span>
+            <div>HARMONICS: <span id="harmonics-readout" class="readout-value">4 ACTIVE</span></div>
+          </div>
+        </div>
+
+        <div class="canvas-wrapper">
+          <canvas id="interactiveCanvas"></canvas>
+          <div class="canvas-hint">
+            [DRAG OR HOVER TO MODULATE FREQUENCY]
+          </div>
+        </div>
+
+        <div class="lab-controls">
+          <div class="preset-group">
+            <button class="preset-btn active" data-preset="sine">SINE WAVE</button>
+            <button class="preset-btn" data-preset="neural">NEURAL HARMONIC</button>
+            <button class="preset-btn" data-preset="harmonic">PULSE ECHO</button>
+            <button class="preset-btn" data-preset="spikes">ACOUSTIC SPIKES</button>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 0.6875rem; color: var(--text-muted);">
+            SPECTRUM: MONOCHROMATIC VECTORS
+          </div>
+        </div>
+      </section>
+
+      <!-- Features Grid -->
+      <section id="features" class="features-grid reveal">
+        <div class="feature-card">
+          <div class="feature-num">01 // LATENCY</div>
+          <h4 class="feature-title">4.2ms Direct Neural Response</h4>
+          <p class="feature-desc">Continuous stream computation delivers speech audio synthesis faster than standard human vocal cords.</p>
+          <div class="feature-viz">
+            <div class="viz-bar"></div>
+            <div class="viz-bar"></div>
+            <div class="viz-bar"></div>
+            <div class="viz-bar"></div>
+            <div class="viz-bar"></div>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-num">02 // MODULATION</div>
+          <h4 class="feature-title">Continuous Fluid Stroke</h4>
+          <p class="feature-desc">Collapses any voice waveform dynamically into smooth vector bezier curves for real-time visualization.</p>
+          <div class="feature-viz">
+            <div class="viz-bar"></div>
+            <div class="viz-bar"></div>
+            <div class="viz-bar"></div>
+            <div class="viz-bar"></div>
+            <div class="viz-bar"></div>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-num">03 // ARCHITECTURE</div>
+          <h4 class="feature-title">Monochromatic Vector Core</h4>
+          <p class="feature-desc">No visual clutter or extraneous noise. Only mathematically exact pitch-black sound wave synthesis.</p>
+          <div class="feature-viz">
+            <div class="viz-bar"></div>
+            <div class="viz-bar"></div>
+            <div class="viz-bar"></div>
+            <div class="viz-bar"></div>
+            <div class="viz-bar"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Protocol Specifications -->
+      <section id="protocol" class="protocol-section reveal">
+        <div class="protocol-text">
+          <h3>NC-866 Synthesis Protocol</h3>
+          <p>
+            Designed for next-generation spatial computing and vocal artificial intelligence. 
+            Waveform NC-866 generates high-fidelity parametric audio shapes directly from streaming neural tokens with zero perceived latency.
+          </p>
+        </div>
+
+        <div class="specs-list" id="specs">
+          <div class="spec-item">
+            <span class="spec-label">SAMPLING RATE</span>
+            <span class="spec-val">192 kHz / 32-BIT FLOAT</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">HARMONIC DISTORTION</span>
+            <span class="spec-val">&lt; 0.0001% THD</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">VECTOR RENDERING</span>
+            <span class="spec-val">BEZIER CURVE SUB-PIXEL</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">AUDIO ENGINE</span>
+            <span class="spec-val">WEB AUDIO API OSCILLATOR</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-container">
+        <div class="footer-brand">
+          <span class="footer-brand-dot"></span>
+          <span>NC-866 SYNTHESIS PROTOCOL &bull; 2026 EDITION</span>
+        </div>
+
+        <div class="footer-links">
+          <button onclick="replayFullVideoAnimation()" class="footer-link-btn">RESTART INTRO</button>
+          <a href="#" class="footer-link-btn" style="text-decoration: none;">TOP &uarr;</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Self-contained Script Module -->
+  <script src="script.js"></script>
+</body>
+</html>
